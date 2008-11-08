@@ -1,0 +1,18 @@
+AUTOMAKE_OPTIONS     = 1.4 foreign
+
+MAINTAINERCLEANFILES = Makefile.in
+
+INCLUDES = \
+-I$(top_srcdir) \
+-I$(top_srcdir)/src/bin \
+-DPACKAGE_DATA_DIR=\"$(datadir)/$(PACKAGE)\" \
+@OMDICT_CFLAGS@
+
+bin_PROGRAMS = omdict
+
+omdict_INCLUDES = 
+
+omdict_SOURCES = \
+main.c
+
+omdict_LDADD = @OMDICT_LIBS@
