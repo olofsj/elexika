@@ -8,7 +8,7 @@ collections {
                 mouse_events: 0;
                 description { state: "default" 0.0;
                     align: 0 0;
-                    color: 225 225 225 255;
+                    color: 0 0 0 255;
                     rel1 {
                         relative: 0.0 0.0;
                         offset: 0 0;
@@ -19,6 +19,46 @@ collections {
                     }
                 }
             }
+            part { name: "results";
+                type: TEXTBLOCK;
+                effect: NONE;
+                description { state: "default" 0.0;
+                    color:  255 255 255 255;
+                    align: 0 0;
+                    text {
+                        text:        "No results.";
+                        style:       "style_results";
+                    }
+                    rel1 {
+                        relative: 0.0 0.0;
+                        offset: 10 10;
+                    }
+                    rel2 {
+                        relative: 1.0 1.0;
+                        offset: -11 -11;
+                    }
+                }
+            }
         }
     }
 }
+styles {
+  style {
+    name: "style_results";
+    base: "font=Sans font_size=18 align=left valign=bottom color=#fff  wrap=word";
+
+    tag:  "salute"    "  font_size=15 color=#fff style=soft_shadow shadow_color=#000";
+    tag:  "/salute"   "- \n";
+    tag:  "response"  "  font_size=10 style=outline outline_color=#fff";
+    tag:  "/response" "-";
+    tag:  "highlight" "+ style=underline underline_color=#000A underline2_color=#0005";
+    tag:  "/highlight" "-";
+    tag:  "time"      "+ color=#00f";
+    tag:  "/time"     "-";
+    tag:  "scary"     "+ color=#f00 style=soft_outline outline_color=#f005";
+    tag:  "/scare"    "-";
+    tag:  "mega_br"   "  \n \n";
+    tag:  "br"        "  \n";
+  }
+}
+

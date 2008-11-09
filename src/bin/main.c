@@ -3,6 +3,7 @@
 #include <Ecore.h>
 #include <Ecore_Evas.h>
 #include <Edje.h>
+#include "omdict_dictionary.h"
 
 int
 main(int argc, char **argv)
@@ -11,8 +12,11 @@ main(int argc, char **argv)
     Evas *evas;
     Evas_Object *bg, *edje, *o, *canvas;
     Evas_Coord w, h;
-    w = 400;
-    h = 200;
+    Dictionary *dict;
+    Eina_List *result;
+    Match *match;
+    w = 480;
+    h = 640;
 
     /* initialize our libraries */
     evas_init();
@@ -36,6 +40,19 @@ main(int argc, char **argv)
 
     /* show the window */
     ecore_evas_show(ee);
+
+    /* set up the dictionary */
+    dict = omdict_dictionary_new(
+            "Edict", 
+            "/home/olof/code/JapaScanMulti/dicts/edict.mod.txt", 
+            "\"/%1/\"	\"/%2/\"	\"/%3/\"	\"%4\"", 
+            "%2<br>%1 %4<br>%3");
+
+    printf("Entries: %d\n", omdict_dictionary_size_get(dict));
+    result = omdict_dictionary_query(dict, "school");
+    match = result->data;
+    printf("Result: %s\n", match->str);
+    edje_object_part_text_set(edje, "results", match->str);
 
     /* start the main event loop */
     ecore_main_loop_begin();

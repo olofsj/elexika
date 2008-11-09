@@ -10,9 +10,11 @@ INCLUDES = \
 
 bin_PROGRAMS = omdict
 
-omdict_INCLUDES = 
+omdict_INCLUDES = \
+omdict_dictionary.h
 
 omdict_SOURCES = \
-main.c
+main.c \
+omdict_dictionary.c
 
 omdict_LDADD = @OMDICT_LIBS@
