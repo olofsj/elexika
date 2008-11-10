@@ -18,6 +18,8 @@ _cb_load_timer(void *data)
     /* set up the dictionary */
     printf("Loading dictionary.\n");
     edje_object_part_text_set(edje, "status", "Loading dictionary.");
+    ecore_main_loop_iterate();
+
     dict = omdict_dictionary_new(
             "Edict", 
             "/home/olof/code/JapaScanMulti/dicts/edict.mod.txt", 
@@ -26,6 +28,8 @@ _cb_load_timer(void *data)
 
     printf("Entries: %d\n", omdict_dictionary_size_get(dict));
     edje_object_part_text_set(edje, "status", "Querying dictionary.");
+    ecore_main_loop_iterate();
+
     result = omdict_dictionary_query(dict, "school");
     match = result->data;
     printf("Result: %s\n", match->str);
