@@ -34,13 +34,25 @@ _cb_load_timer(void *data)
     return 0;
 }
 
+void 
+_cb_resize(Ecore_Evas *ee) {
+    int w, h;
+    Evas_Object *o = NULL;
+
+    if (ee) {
+        ecore_evas_geometry_get(ee, NULL, NULL, &w, &h);
+        if ((o = evas_object_name_find(ecore_evas_get(ee), "edje")))
+            evas_object_resize(o, w, h);
+    }
+}
+
 int
 main(int argc, char **argv)
 {
     Ecore_Evas *ee;
     Evas *evas;
     Evas_Object *bg, *edje, *o, *canvas;
-    Evas_Coord w, h;
+    Evas_Coord x, y, w, h;
     w = 480;
     h = 640;
 
@@ -51,8 +63,10 @@ main(int argc, char **argv)
     edje_init();
 
     /* create our Ecore_Evas */
-    ee = ecore_evas_software_x11_new(0, 0, 0, 0, w, h);
+    ee = ecore_evas_new(NULL, 0, 0, 1, 1, ""); 
     ecore_evas_title_set(ee, "OmDict");
+    ecore_evas_fullscreen_set(ee, 1);
+    ecore_evas_callback_resize_set(ee, _cb_resize);
 
     /* get a pointer our new Evas canvas */
     evas = ecore_evas_get(ee);
@@ -60,11 +74,9 @@ main(int argc, char **argv)
     /* Load and set up the edje objects */
     edje = edje_object_add(evas);
     edje_object_file_set(edje, "../../data/themes/omdict.edj", "omdict");
-    evas_object_move(edje, 0, 0);
-    evas_object_resize(edje, w, h);
     evas_object_show(edje);
     ecore_timer_add(2.0, _cb_load_timer, edje);
-    //edje_object_signal_callback_add(edje, "load", "", _cb_show, NULL);
+    evas_object_name_set(edje, "edje");
 
     /* show the window */
     ecore_evas_show(ee);
