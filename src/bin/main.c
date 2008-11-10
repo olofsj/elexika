@@ -63,9 +63,8 @@ main(int argc, char **argv)
     edje_init();
 
     /* create our Ecore_Evas */
-    ee = ecore_evas_new(NULL, 0, 0, 1, 1, ""); 
+    ee = ecore_evas_new(NULL, 0, 0, w, h, ""); 
     ecore_evas_title_set(ee, "OmDict");
-    ecore_evas_fullscreen_set(ee, 1);
     ecore_evas_callback_resize_set(ee, _cb_resize);
 
     /* get a pointer our new Evas canvas */
@@ -74,8 +73,9 @@ main(int argc, char **argv)
     /* Load and set up the edje objects */
     edje = edje_object_add(evas);
     edje_object_file_set(edje, "../../data/themes/omdict.edj", "omdict");
+    evas_object_resize(edje, w, h);
     evas_object_show(edje);
-    ecore_timer_add(2.0, _cb_load_timer, edje);
+    ecore_timer_add(1.0, _cb_load_timer, edje);
     evas_object_name_set(edje, "edje");
 
     /* show the window */
