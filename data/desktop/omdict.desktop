@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=OmDict
+Comment=OmDict
+Exec=omdict
+Icon=omdict
+Terminal=false
+Type=Application
+Categories=Application;Utilities;
