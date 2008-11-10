@@ -5,6 +5,35 @@
 #include <Edje.h>
 #include "omdict_dictionary.h"
 
+static int
+_cb_load_timer(void *data)
+{
+    Dictionary *dict;
+    Eina_List *result;
+    Match *match;
+    Evas_Object *edje;
+
+    edje = data;
+
+    /* set up the dictionary */
+    printf("Loading dictionary.\n");
+    edje_object_part_text_set(edje, "status", "Loading dictionary.");
+    dict = omdict_dictionary_new(
+            "Edict", 
+            "/home/olof/code/JapaScanMulti/dicts/edict.mod.txt", 
+            "\"/%1/\"	\"/%2/\"	\"/%3/\"	\"%4\"", 
+            "%2<br>%1 %4<br>%3");
+
+    printf("Entries: %d\n", omdict_dictionary_size_get(dict));
+    edje_object_part_text_set(edje, "status", "Querying dictionary.");
+    result = omdict_dictionary_query(dict, "school");
+    match = result->data;
+    printf("Result: %s\n", match->str);
+    edje_object_part_text_set(edje, "results", match->str);
+    edje_object_part_text_set(edje, "status", "Ready.");
+    return 0;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -12,9 +41,6 @@ main(int argc, char **argv)
     Evas *evas;
     Evas_Object *bg, *edje, *o, *canvas;
     Evas_Coord w, h;
-    Dictionary *dict;
-    Eina_List *result;
-    Match *match;
     w = 480;
     h = 640;
 
@@ -37,22 +63,11 @@ main(int argc, char **argv)
     evas_object_move(edje, 0, 0);
     evas_object_resize(edje, w, h);
     evas_object_show(edje);
+    ecore_timer_add(2.0, _cb_load_timer, edje);
+    //edje_object_signal_callback_add(edje, "load", "", _cb_show, NULL);
 
     /* show the window */
     ecore_evas_show(ee);
-
-    /* set up the dictionary */
-    dict = omdict_dictionary_new(
-            "Edict", 
-            "/home/olof/code/JapaScanMulti/dicts/edict.mod.txt", 
-            "\"/%1/\"	\"/%2/\"	\"/%3/\"	\"%4\"", 
-            "%2<br>%1 %4<br>%3");
-
-    printf("Entries: %d\n", omdict_dictionary_size_get(dict));
-    result = omdict_dictionary_query(dict, "school");
-    match = result->data;
-    printf("Result: %s\n", match->str);
-    edje_object_part_text_set(edje, "results", match->str);
 
     /* start the main event loop */
     ecore_main_loop_begin();

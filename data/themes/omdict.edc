@@ -39,6 +39,28 @@ collections {
                     }
                 }
             }
+            part { name: "status";
+                type: TEXT;
+                effect: NONE;
+                description { state: "default" 0.0;
+                    color:  255 255 255 255;
+                    align: 0 0;
+                    text {
+                        text:        "Loaded interface.";
+                        font:        "Sans";
+                        size:         18;
+                        align:       0.0 0.5;
+                    }
+                    rel1 {
+                        relative: 0.0 0.9;
+                        offset: 10 0;
+                    }
+                    rel2 {
+                        relative: 1.0 1.0;
+                        offset: -11 -1;
+                    }
+                }
+            }
         }
     }
 }
