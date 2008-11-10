@@ -5,6 +5,6 @@ desktopdir = $(datadir)/applications
 desktop_DATA = omdict.desktop
 
 icondir = $(datadir)/icons
-icon_DATA = omdict.svg
+icon_DATA = omdict.png
 
-EXTRA_DIST = omdict.desktop omdict.svg
+EXTRA_DIST = omdict.desktop omdict.png
