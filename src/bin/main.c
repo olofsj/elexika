@@ -16,6 +16,7 @@ _cb_load_timer(void *data)
     edje = data;
 
     /* set up the dictionary */
+    ecore_main_loop_iterate();
     printf("Loading dictionary.\n");
     edje_object_part_text_set(edje, "status", "Loading dictionary.");
     ecore_main_loop_iterate();

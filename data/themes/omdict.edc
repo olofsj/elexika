@@ -21,7 +21,6 @@ collections {
             }
             part { name: "results";
                 type: TEXTBLOCK;
-                effect: NONE;
                 description { state: "default" 0.0;
                     color:  255 255 255 255;
                     align: 0 0;
