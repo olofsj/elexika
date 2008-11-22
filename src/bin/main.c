@@ -6,15 +6,19 @@
 #include <Elementary.h>
 #include "omdict_dictionary.h"
 
-static Dictionary *_dict = NULL;
+static Eina_List * _get_available_dicts(void);
+static const char * _user_homedir_get(void);
+
+static Eina_List *_dicts = NULL;
 
 static int
 _cb_load_timer(void *data)
 {
-    Eina_List *result, *l;
+    Eina_List *result, *l, *dicts;
     Match *match;
     Evas *evas;
     Evas_Object *label, *en;
+    char *file;
 
     evas = data;
     label = evas_object_name_find(evas, "label/status");
@@ -22,30 +26,26 @@ _cb_load_timer(void *data)
 
     /* set up the dictionary */
     ecore_main_loop_iterate();
-    printf("Loading dictionary.\n");
-    elm_label_label_set(label,
-            "<br>"
-            "<b>Status: Loading dictionary...</b><br>"
-            "<br>");
+    dicts = _get_available_dicts();
+    elm_label_label_set(label, "<b>Status: Loading dictionary...</b><br>");
     ecore_main_loop_iterate();
 
-    _dict = omdict_dictionary_new(
-            "Edict", 
-            "/home/olof/code/JapaScanMulti/dicts/edict.mod.txt", 
-            "\"/%1/\"	\"/%2/\"	\"/%3/\"	\"%4\"", 
-            "%2<br>%1 %4<br>%3<br><br>");
+    for (l = dicts; l; l = l->next) {
+        file = l->data;
+        printf("Loading dictionary: %s\n", file);
+        _dicts = eina_list_append(_dicts, 
+                omdict_dictionary_new_from_file(file));
+    }
 
-    elm_label_label_set(label,
-            "<br>"
-            "<b>Status: Ready.</b><br>"
-            "<br>");
+    elm_label_label_set(label, "<b>Status: Ready.</b><br>");
     return 0;
 }
 
 static void
 _cb_query(void *data, Evas_Object *obj, void *event_info)
 {
-    Eina_List *result, *l;
+    Eina_List *result, *l, *d;
+    Dictionary *dict;
     Match *match;
     Evas *evas;
     Evas_Object *label, *en, *entry;
@@ -67,16 +67,20 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     if (strlen(query) == 0)
         return;
 
-    elm_label_label_set(label,
-            "<br>"
-            "<b>Status: Querying dictionary...</b><br>"
-            "<br>");
+    elm_label_label_set(label, "<b>Status: Querying dictionary...</b><br>");
     elm_entry_entry_set(en, "Querying...");
 
     printf("Query: %s\n", query);
-    result = omdict_dictionary_query(_dict, query);
-    printf("Queried dictionary.\n");
-    
+    /* Query all loaded dictionaries and merge results */
+    result = NULL;
+    for (d = _dicts; d; d = d->next) {
+        dict = d->data;
+        result = eina_list_sorted_merge(result, omdict_dictionary_query(dict, query), 
+                omdict_dictionary_sort_cb);
+        printf("Queried dictionary '%s'.\n", dict->name);
+    }
+
+    /* Display results */
     if (result) {
         printf("Got some results.\n");
         elm_entry_entry_set(en, "");
@@ -89,18 +93,66 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
         elm_entry_entry_set(en, "No results.");
     }
 
-    elm_label_label_set(label,
-            "<br>"
-            "<b>Status: Ready.</b><br>"
-            "<br>");
+    elm_label_label_set(label, "<b>Status: Ready.</b><br>");
     printf("Finished.\n");
 }
 
+static Eina_List *
+_get_available_dicts(void)
+{
+    Ecore_List *files;
+    char buf[PATH_MAX], *p, *file;
+    const char *homedir, *fl;
+    Eina_List *dicts = NULL, *l, *layouts = NULL;
+    int ok;
+
+    homedir = _user_homedir_get();
+    snprintf(buf, sizeof(buf), "%s/code/omdict/src/bin", homedir);
+    files = ecore_file_ls(buf);
+    if (files)
+    {
+        ecore_list_first_goto(files);
+        while ((file = ecore_list_current(files)))
+        {
+            p = strrchr(file, '.');
+            if ((p) && (!strcmp(p, ".dict")))
+            {
+                snprintf(buf, sizeof(buf), "%s/code/omdict/src/bin/%s", homedir, file);
+                dicts = eina_list_append(dicts, evas_stringshare_add(buf));
+            }
+            ecore_list_next(files);
+        }
+        ecore_list_destroy(files);
+    }
+
+    for (l = dicts; l; l = l->next) {
+        printf("Availible dict: %s\n", l->data);
+    }
+    
+    return dicts;
+}
+
+static const char *
+_user_homedir_get(void)
+{
+    char *homedir;
+    int len;
+
+    homedir = getenv("HOME");
+    if (!homedir) return "/tmp";
+    len = strlen(homedir);
+    while ((len > 1) && (homedir[len - 1] == '/'))
+    {
+        homedir[len - 1] = 0;
+        len--;
+    }
+    return homedir;
+}
 
 static void
 on_win_del_req(void *data, Evas_Object *obj, void *event_info)
 {
-   elm_exit();
+    elm_exit();
 }
 
 int
@@ -189,10 +241,7 @@ main(int argc, char **argv)
     evas_object_show(sc);
 
     label = elm_label_add(win);
-    elm_label_label_set(label,
-            "<br>"
-            "<b>Status: Initializing interface...</b><br>"
-            "<br>");
+    elm_label_label_set(label, "<b>Status: Initializing interface...</b><br>");
     elm_box_pack_end(bx, label);
     evas_object_name_set(label, "label/status");
     evas_object_size_hint_weight_set(label, 1.0, 0.0);

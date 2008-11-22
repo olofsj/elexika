@@ -7,7 +7,7 @@ static char *** _dictionary_load_from_file(const char *filename, char **seps);
 static char ** _parse_input_line(const char *line, char **seps);
 static void _parse_format(const char *format, char ***seps, char ***fields);
 static char * _format_result(char **match, char **fields, char *markup);
-static int omdict_dictionary_sort_cb(const void *d1, const void *d2);
+static char * _get_config_value(char *buf);
 
 void
 omdict_dictionary_del(Dictionary* self)
@@ -45,9 +45,63 @@ omdict_dictionary_del(Dictionary* self)
 }
 
 Dictionary *
+omdict_dictionary_new_from_file(const char *filename)
+{
+   FILE *f;
+   char buf[4096];
+   int isok = 0;
+   char *name, *file, *markup, *format;
+   
+   f = fopen(filename, "r");
+   if (!f) return NULL;
+
+   while (fgets(buf, sizeof(buf), f))
+   {
+       int len;
+       char str[4096];
+
+       if (!isok)
+       {
+           if (!strcmp(buf, "##DICTCONF-1.0\n")) isok = 1;
+       }
+       if (!isok) break;
+       if (buf[0] == '#') continue;
+       len = strlen(buf);
+       if (len > 0)
+       {
+           if (buf[len - 1] == '\n') buf[len - 1] = 0;
+       }
+       if (sscanf(buf, "%4000s", str) != 1) continue;
+       if (!strcmp(str, "name"))
+       {
+           name = _get_config_value(buf+strlen(str));
+           printf("Matched name: %s\n", name);
+       }
+       if (!strcmp(str, "file"))
+       {
+           file = _get_config_value(buf+strlen(str));
+           printf("Matched file: %s\n", file);
+       }
+       if (!strcmp(str, "markup"))
+       {
+           markup = _get_config_value(buf+strlen(str));
+           printf("Matched markup: %s\n", markup);
+       }
+       if (!strcmp(str, "format"))
+       {
+           format = _get_config_value(buf+strlen(str));
+           printf("Matched format: %s\n", format);
+       }
+   }
+   fclose(f);
+
+   return omdict_dictionary_new(name, file, format, markup);
+}
+
+Dictionary *
 omdict_dictionary_new(const char *name, const char *filename, const char *format, const char *markup)
 {
-	Dictionary *dict;
+    Dictionary *dict;
 
     dict = calloc(1, sizeof(Dictionary));
     dict->name = strdup(name);
@@ -131,7 +185,7 @@ omdict_dictionary_query(Dictionary *self, const char *str)
     return eina_list_sort(result, 0, omdict_dictionary_sort_cb);
 }
 
-static int
+int
 omdict_dictionary_sort_cb(const void *d1, const void *d2)
 {
     const Match *m1 = NULL;
@@ -391,5 +445,23 @@ static char * _format_result(char **match, char **fields, char *markup) {
 	result[pos] = '\0';
 	
 	return result;
+}
+
+/* Read the config option from the buffer, i.e. strip unneeded chars. */
+static char * _get_config_value(char *buf)
+{
+    char *start, *end, quote;
+    start = buf;
+    while (*start == ' ' || *start == '\t' || *start == '=')
+        start++;
+    if (*start == '"' || *start == '\'') {
+        quote = *start;
+        start++;
+    }
+    end = start;
+    while (*end && *end != quote && *end != '\n')
+        end++;
+    *end = '\0';
+    return strdup(start);
 }
 
