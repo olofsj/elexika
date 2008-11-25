@@ -5,6 +5,7 @@
 #include <Edje.h>
 #include <Elementary.h>
 #include "omdict_dictionary.h"
+#include "omdict_result_list.h"
 
 static Eina_List * _get_available_dicts(void);
 static const char * _user_homedir_get(void);
@@ -68,7 +69,7 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
         return;
 
     elm_label_label_set(label, "<b>Status: Querying dictionary...</b><br>");
-    elm_entry_entry_set(en, "Querying...");
+    omdict_result_list_clear(en);
 
     printf("Query: %s\n", query);
     /* Query all loaded dictionaries and merge results */
@@ -82,15 +83,12 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
 
     /* Display results */
     if (result) {
-        printf("Got some results.\n");
-        elm_entry_entry_set(en, "");
         for (l = result; l; l = l->next) {
             match = l->data;
-            elm_entry_entry_insert(en, match->str);
+            omdict_result_list_append(en, match->str);
         }
     } else {
-        printf("No results.\n");
-        elm_entry_entry_set(en, "No results.");
+        omdict_result_list_append(en, "No results.");
     }
 
     elm_label_label_set(label, "<b>Status: Ready.</b><br>");
@@ -229,16 +227,16 @@ main(int argc, char **argv)
     evas_object_size_hint_align_set(sc, -1.0, -1.0);
     elm_box_pack_end(bx, sc);
 
-    en = elm_entry_add(win);
-    elm_entry_entry_set(en, "No results.");
-    elm_entry_editable_set(en, 0);
-    evas_object_size_hint_weight_set(en, 1.0, 1.0);
-    evas_object_size_hint_align_set(en, -1.0, -1.0);
-    elm_scroller_content_set(sc, en);
-    evas_object_name_set(en, "results");
-    evas_object_show(en);
+    o = omdict_result_list_add(evas, win);
+    evas_object_name_set(o, "results");
+    evas_object_size_hint_weight_set(o, 1.0, 1.0);
+    evas_object_size_hint_align_set(o, -1.0, -1.0);
+    elm_scroller_content_set(sc, o);
+    evas_object_show(o);
 
     evas_object_show(sc);
+
+    omdict_result_list_append(en, "Search for a word.");
 
     label = elm_label_add(win);
     elm_label_label_set(label, "<b>Status: Initializing interface...</b><br>");
