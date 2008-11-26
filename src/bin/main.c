@@ -105,7 +105,7 @@ _get_available_dicts(void)
     int ok;
 
     homedir = _user_homedir_get();
-    snprintf(buf, sizeof(buf), "%s/code/elexika/src/bin", homedir);
+    snprintf(buf, sizeof(buf), "%s/.elexika", homedir);
     files = ecore_file_ls(buf);
     if (files)
     {
@@ -115,7 +115,7 @@ _get_available_dicts(void)
             p = strrchr(file, '.');
             if ((p) && (!strcmp(p, ".dict")))
             {
-                snprintf(buf, sizeof(buf), "%s/code/elexika/src/bin/%s", homedir, file);
+                snprintf(buf, sizeof(buf), "%s/.elexika/%s", homedir, file);
                 dicts = eina_list_append(dicts, evas_stringshare_add(buf));
             }
             ecore_list_next(files);
