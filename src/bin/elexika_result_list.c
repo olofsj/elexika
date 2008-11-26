@@ -3,6 +3,7 @@
 #include <Ecore_Job.h>
 #include <Edje.h>
 #include "elexika_result_list.h" 
+#include "elexika_dictionary.h" 
 
 typedef struct _Smart_Data Smart_Data;
 
@@ -64,27 +65,32 @@ elexika_result_list_clear(Evas_Object *obj)
 }
 
 void
-elexika_result_list_append(Evas_Object *obj, char * str)
+elexika_result_list_append(Evas_Object *obj, Eina_List *list)
 {
     Evas_Object *o;
     Smart_Data *sd;
     Evas_Coord minw, minh;
+    Eina_List *l;
+    Match *match;
 
     sd = evas_object_smart_data_get(obj);
     if (!sd) return;
 
-    o = edje_object_add(evas_object_evas_get(sd->obj));
-    edje_object_file_set(o, "../../data/themes/elexika.edj", "result");
-    edje_object_part_text_set(o, "result.text", str);
-    //printf("Appending text to list: %s\n", str);
-    
-    evas_object_show(o);
+    for (l = list; l; l = l->next) {
+        match = l->data;
+        o = edje_object_add(evas_object_evas_get(sd->obj));
+        edje_object_file_set(o, "../../data/themes/elexika.edj", "result");
+        edje_object_part_text_set(o, "result.text", match->str);
+        //printf("Appending text to list: %s\n", str);
 
-    evas_object_clip_set(o, sd->clip);
-    evas_object_smart_member_add(o, obj);
-    sd->children = eina_list_append(sd->children, o);
-    if (eina_list_count(sd->children) % 2 == 0)
-        edje_object_signal_emit(o, "result,state,even", "result_list");
+        evas_object_show(o);
+
+        evas_object_clip_set(o, sd->clip);
+        evas_object_smart_member_add(o, obj);
+        sd->children = eina_list_append(sd->children, o);
+        if (eina_list_count(sd->children) % 2 == 0)
+            edje_object_signal_emit(o, "result,state,even", "result_list");
+    }
 
     _sizing_eval(obj);
 }

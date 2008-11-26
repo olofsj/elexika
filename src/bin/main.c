@@ -16,7 +16,6 @@ static int
 _cb_load_timer(void *data)
 {
     Eina_List *result, *l, *dicts;
-    Match *match;
     Evas *evas;
     Evas_Object *label, *en;
     char *file;
@@ -47,7 +46,6 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
 {
     Eina_List *result, *l, *d;
     Dictionary *dict;
-    Match *match;
     Evas *evas;
     Evas_Object *label, *en, *entry;
     const char *query;
@@ -83,12 +81,9 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
 
     /* Display results */
     if (result) {
-        for (l = result; l; l = l->next) {
-            match = l->data;
-            elexika_result_list_append(en, match->str);
-        }
+        elexika_result_list_append(en, result);
     } else {
-        elexika_result_list_append(en, "No results.");
+        //elexika_result_list_append(en, "No results.");
     }
 
     elm_label_label_set(label, "<b>Status: Ready.</b><br>");
@@ -236,7 +231,7 @@ main(int argc, char **argv)
 
     evas_object_show(sc);
 
-    elexika_result_list_append(en, "Search for a word.");
+    //elexika_result_list_append(en, "Search for a word.");
 
     label = elm_label_add(win);
     elm_label_label_set(label, "<b>Status: Initializing interface...</b><br>");
