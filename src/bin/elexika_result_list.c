@@ -89,7 +89,7 @@ elexika_result_list_append(Evas_Object *obj, Eina_List *list)
     for (l = list; l; l = l->next) {
         match = l->data;
         o = edje_object_add(evas_object_evas_get(sd->obj));
-        edje_object_file_set(o, "../../data/themes/elexika.edj", "result");
+        edje_object_file_set(o, "/usr/share/themes/elexika.edj", "result");
         edje_object_part_text_set(o, "result.text", match->str);
         //printf("Appending text to list: %s\n", str);
 
