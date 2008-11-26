@@ -9,15 +9,15 @@ EDJE_FLAGS = \
 
 filesdir = $(datadir)/themes
 files_DATA = \
-omdict.edj
+elexika.edj
 
 EXTRA_DIST = \
-omdict.edc
+elexika.edc
 
-omdict.edj: Makefile $(EXTRA_DIST)
+elexika.edj: Makefile $(EXTRA_DIST)
 	$(EDJE_CC) $(EDJE_FLAGS) \
-	$(top_srcdir)/data/themes/omdict.edc \
-	$(top_builddir)/data/themes/omdict.edj
+	$(top_srcdir)/data/themes/elexika.edc \
+	$(top_builddir)/data/themes/elexika.edj
 
 clean-local:
 	rm -f *.edj

@@ -8,15 +8,15 @@ INCLUDES = \
 -DPACKAGE_DATA_DIR=\"$(datadir)/$(PACKAGE)\" \
 @OMDICT_CFLAGS@
 
-bin_PROGRAMS = omdict
+bin_PROGRAMS = elexika
 
-omdict_INCLUDES = \
-omdict_result_list.h \
-omdict_dictionary.h
+elexika_INCLUDES = \
+elexika_result_list.h \
+elexika_dictionary.h
 
-omdict_SOURCES = \
+elexika_SOURCES = \
 main.c \
-omdict_result_list.c \
-omdict_dictionary.c
+elexika_result_list.c \
+elexika_dictionary.c
 
-omdict_LDADD = @OMDICT_LIBS@
+elexika_LDADD = @OMDICT_LIBS@

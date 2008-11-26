@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "omdict_dictionary.h"
+#include "elexika_dictionary.h"
 
 static char *** _dictionary_load_from_file(const char *filename, char **seps);
 static char ** _parse_input_line(const char *line, char **seps);
@@ -10,7 +10,7 @@ static char * _format_result(char **match, char **fields, char *markup);
 static char * _get_config_value(char *buf);
 
 void
-omdict_dictionary_del(Dictionary* self)
+elexika_dictionary_del(Dictionary* self)
 {
 	/* Free all values stored in the arrays, as well as the arrays themselves */
 	if (self->dict != NULL) {
@@ -45,7 +45,7 @@ omdict_dictionary_del(Dictionary* self)
 }
 
 Dictionary *
-omdict_dictionary_new_from_file(const char *filename)
+elexika_dictionary_new_from_file(const char *filename)
 {
    FILE *f;
    char buf[4096];
@@ -95,11 +95,11 @@ omdict_dictionary_new_from_file(const char *filename)
    }
    fclose(f);
 
-   return omdict_dictionary_new(name, file, format, markup);
+   return elexika_dictionary_new(name, file, format, markup);
 }
 
 Dictionary *
-omdict_dictionary_new(const char *name, const char *filename, const char *format, const char *markup)
+elexika_dictionary_new(const char *name, const char *filename, const char *format, const char *markup)
 {
     Dictionary *dict;
 
@@ -120,7 +120,7 @@ omdict_dictionary_new(const char *name, const char *filename, const char *format
 
 /* Look up a word in the dictionary */
 Eina_List *
-omdict_dictionary_query(Dictionary *self, const char *str)
+elexika_dictionary_query(Dictionary *self, const char *str)
 {
 	const char *query;
 	Eina_List *result;
@@ -182,11 +182,11 @@ omdict_dictionary_query(Dictionary *self, const char *str)
 		}
 	}
 
-    return eina_list_sort(result, 0, omdict_dictionary_sort_cb);
+    return eina_list_sort(result, 0, elexika_dictionary_sort_cb);
 }
 
 int
-omdict_dictionary_sort_cb(const void *d1, const void *d2)
+elexika_dictionary_sort_cb(const void *d1, const void *d2)
 {
     const Match *m1 = NULL;
     const Match *m2 = NULL;
@@ -205,7 +205,7 @@ omdict_dictionary_sort_cb(const void *d1, const void *d2)
 
 /* Get the number of entries in the dictionary */
 int
-omdict_dictionary_size_get(Dictionary *self)
+elexika_dictionary_size_get(Dictionary *self)
 {
 	if ( self->dict == NULL) {
 		return 0;

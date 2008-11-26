@@ -4,8 +4,8 @@
 #include <Ecore_Evas.h>
 #include <Edje.h>
 #include <Elementary.h>
-#include "omdict_dictionary.h"
-#include "omdict_result_list.h"
+#include "elexika_dictionary.h"
+#include "elexika_result_list.h"
 
 static Eina_List * _get_available_dicts(void);
 static const char * _user_homedir_get(void);
@@ -35,7 +35,7 @@ _cb_load_timer(void *data)
         file = l->data;
         printf("Loading dictionary: %s\n", file);
         _dicts = eina_list_append(_dicts, 
-                omdict_dictionary_new_from_file(file));
+                elexika_dictionary_new_from_file(file));
     }
 
     elm_label_label_set(label, "<b>Status: Ready.</b><br>");
@@ -69,15 +69,15 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
         return;
 
     elm_label_label_set(label, "<b>Status: Querying dictionary...</b><br>");
-    omdict_result_list_clear(en);
+    elexika_result_list_clear(en);
 
     printf("Query: %s\n", query);
     /* Query all loaded dictionaries and merge results */
     result = NULL;
     for (d = _dicts; d; d = d->next) {
         dict = d->data;
-        result = eina_list_sorted_merge(result, omdict_dictionary_query(dict, query), 
-                omdict_dictionary_sort_cb);
+        result = eina_list_sorted_merge(result, elexika_dictionary_query(dict, query), 
+                elexika_dictionary_sort_cb);
         printf("Queried dictionary '%s'.\n", dict->name);
     }
 
@@ -85,10 +85,10 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     if (result) {
         for (l = result; l; l = l->next) {
             match = l->data;
-            omdict_result_list_append(en, match->str);
+            elexika_result_list_append(en, match->str);
         }
     } else {
-        omdict_result_list_append(en, "No results.");
+        elexika_result_list_append(en, "No results.");
     }
 
     elm_label_label_set(label, "<b>Status: Ready.</b><br>");
@@ -105,7 +105,7 @@ _get_available_dicts(void)
     int ok;
 
     homedir = _user_homedir_get();
-    snprintf(buf, sizeof(buf), "%s/code/omdict/src/bin", homedir);
+    snprintf(buf, sizeof(buf), "%s/code/elexika/src/bin", homedir);
     files = ecore_file_ls(buf);
     if (files)
     {
@@ -115,7 +115,7 @@ _get_available_dicts(void)
             p = strrchr(file, '.');
             if ((p) && (!strcmp(p, ".dict")))
             {
-                snprintf(buf, sizeof(buf), "%s/code/omdict/src/bin/%s", homedir, file);
+                snprintf(buf, sizeof(buf), "%s/code/elexika/src/bin/%s", homedir, file);
                 dicts = eina_list_append(dicts, evas_stringshare_add(buf));
             }
             ecore_list_next(files);
@@ -169,7 +169,7 @@ main(int argc, char **argv)
 
     /* Set up window */
     win = elm_win_add(NULL, "main", ELM_WIN_BASIC);
-    elm_win_title_set(win, "OmDict");
+    elm_win_title_set(win, "Elexika");
     evas_object_smart_callback_add(win, "delete-request", on_win_del_req, NULL);
     evas = evas_object_evas_get(win);
 
@@ -227,7 +227,7 @@ main(int argc, char **argv)
     evas_object_size_hint_align_set(sc, -1.0, -1.0);
     elm_box_pack_end(bx, sc);
 
-    o = omdict_result_list_add(evas, win);
+    o = elexika_result_list_add(evas, win);
     evas_object_name_set(o, "results");
     evas_object_size_hint_weight_set(o, 1.0, 1.0);
     evas_object_size_hint_align_set(o, -1.0, -1.0);
@@ -236,7 +236,7 @@ main(int argc, char **argv)
 
     evas_object_show(sc);
 
-    omdict_result_list_append(en, "Search for a word.");
+    elexika_result_list_append(en, "Search for a word.");
 
     label = elm_label_add(win);
     elm_label_label_set(label, "<b>Status: Initializing interface...</b><br>");

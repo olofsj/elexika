@@ -2,7 +2,7 @@
 #include <Ecore.h>
 #include <Ecore_Job.h>
 #include <Edje.h>
-#include "omdict_result_list.h" 
+#include "elexika_result_list.h" 
 
 typedef struct _Smart_Data Smart_Data;
 
@@ -37,7 +37,7 @@ static Evas_Smart *_e_smart = NULL;
 
 /* externally accessible functions */
 Evas_Object *
-omdict_result_list_add(Evas *evas, Evas_Object *parent)
+elexika_result_list_add(Evas *evas, Evas_Object *parent)
 {
     Evas_Object *obj;
 
@@ -48,7 +48,7 @@ omdict_result_list_add(Evas *evas, Evas_Object *parent)
 }
 
 void
-omdict_result_list_clear(Evas_Object *obj)
+elexika_result_list_clear(Evas_Object *obj)
 {
     Smart_Data *sd;
     Eina_List *l;
@@ -64,7 +64,7 @@ omdict_result_list_clear(Evas_Object *obj)
 }
 
 void
-omdict_result_list_append(Evas_Object *obj, char * str)
+elexika_result_list_append(Evas_Object *obj, char * str)
 {
     Evas_Object *o;
     Smart_Data *sd;
@@ -74,7 +74,7 @@ omdict_result_list_append(Evas_Object *obj, char * str)
     if (!sd) return;
 
     o = edje_object_add(evas_object_evas_get(sd->obj));
-    edje_object_file_set(o, "../../data/themes/omdict.edj", "result");
+    edje_object_file_set(o, "../../data/themes/elexika.edj", "result");
     edje_object_part_text_set(o, "result.text", str);
     //printf("Appending text to list: %s\n", str);
     
@@ -140,7 +140,7 @@ _smart_init(void)
     {
         static const Evas_Smart_Class sc =
         {
-            "omdict_result_list",
+            "elexika_result_list",
             EVAS_SMART_CLASS_VERSION,
             _smart_add,
             _smart_del,
@@ -176,7 +176,7 @@ _smart_add(Evas_Object *obj)
    
     /* Set up edje object and canvas */
     sd->bg = edje_object_add(evas_object_evas_get(obj));
-    edje_object_file_set(sd->bg, "../../data/themes/omdict.edj", "result_list");
+    edje_object_file_set(sd->bg, "../../data/themes/elexika.edj", "result_list");
     evas_object_move(sd->bg, 0, 0);
     evas_object_clip_set(sd->bg, sd->clip);
     evas_object_smart_member_add(sd->bg, obj);
@@ -194,7 +194,7 @@ _smart_del(Evas_Object *obj)
     if (!sd) return;
     evas_object_del(sd->clip);
     evas_object_del(sd->bg);
-    omdict_result_list_clear(obj);
+    elexika_result_list_clear(obj);
     if (sd->deferred_recalc_job) ecore_job_del(sd->deferred_recalc_job);
     free(sd);
 }

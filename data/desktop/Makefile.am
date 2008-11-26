@@ -2,9 +2,9 @@
 MAINTAINERCLEANFILES = Makefile.in
 
 desktopdir = $(datadir)/applications
-desktop_DATA = omdict.desktop
+desktop_DATA = elexika.desktop
 
 icondir = $(datadir)/pixmaps
-icon_DATA = omdict.png
+icon_DATA = elexika.png
 
-EXTRA_DIST = omdict.desktop omdict.png
+EXTRA_DIST = elexika.desktop elexika.png
