@@ -6,7 +6,7 @@
 static char *** _dictionary_load_from_file(const char *filename, char **seps);
 static char ** _parse_input_line(const char *line, char **seps);
 static void _parse_format(const char *format, char ***seps, char ***fields);
-static char * _format_result(char **match, char **fields, char *markup);
+static char * _format_result(char **match, char **fields, char *markup, const char *query);
 static char * _get_config_value(char *buf);
 
 void
@@ -161,7 +161,7 @@ elexika_dictionary_query(Dictionary *self, const char *str)
                     /* Build return value */
                     match = calloc(1, sizeof(Match) + (isize-1)*sizeof(char *));
                     match->score = score;
-                    match->str = _format_result(self->dict[i], self->fields, self->markup);
+                    match->str = _format_result(self->dict[i], self->fields, self->markup, query);
                     /*
                     for (j = 0; j < isize; j++) {
                         match->str[j] = self->dict[i][j];
@@ -394,7 +394,10 @@ static char ** _parse_input_line(const char *line, char **seps) {
 }
 
 /* Format result according to given markup string */
-static char * _format_result(char **match, char **fields, char *markup) {
+static char * _format_result(char **match, char **fields, char *markup, const char *query) {
+	int k, j;
+    const char * match_tag = "match";
+
 	/* If we have no format or markup just return the first field in match */
 	if ( fields == NULL || markup == NULL ) 
 		return strdup(match[0]);
@@ -409,13 +412,23 @@ static char * _format_result(char **match, char **fields, char *markup) {
 	while ( match[size] != NULL ) { size++; }
 	if (size != nr_of_fields)
 		return strdup(match[0]);
+
+    /* Count the number of matching substrings */
+    int nrof_matches = 0;
+	for (k = 0; k < nr_of_fields; k++) {
+        char *tmp = strstr(match[k], query);
+        while (tmp) {
+            nrof_matches++;
+            tmp = strstr(tmp + strlen(query), query);
+        }
+    }
 	
-	/* Set the length of the returned string as the length of markup + fields */
-	int k, j;
-	int len = strlen(markup);
+	/* Set the length of the returned string as the length of 
+     * markup + fields + nrof_matches * tags */
+	int len = strlen(markup) + nrof_matches*(5 + 2*strlen(match_tag)) - 2*nr_of_fields;
 	for (k = 0; k < nr_of_fields; k++) 
 		len = len+strlen(match[k]);
-	char *result = malloc( (len+1)*sizeof(char));
+	char *result = calloc(len+1, sizeof(char));
 	
 	/* Build the string from format and fields */
 	int pos = 0;
@@ -428,8 +441,28 @@ static char * _format_result(char **match, char **fields, char *markup) {
 					field = j;
 			}
 			if (field != -1) {
-				strcpy( &result[pos], match[field] );
-				pos = pos + strlen(match[field]);
+                char *begin = match[field];
+                char *end = strstr(match[field], query);
+                while (end) {
+                    /* Add tags around each matching substring */
+                    strncpy(&result[pos], begin, end - begin);
+                    pos += end - begin;
+                    result[pos++] = '<';
+                    strcpy(&result[pos], match_tag);
+                    pos += strlen(match_tag);
+                    result[pos++] = '>';
+                    strcpy(&result[pos], query);
+                    pos += strlen(query);
+                    result[pos++] = '<';
+                    result[pos++] = '/';
+                    strcpy(&result[pos], match_tag);
+                    pos += strlen(match_tag);
+                    result[pos++] = '>';
+                    begin = end + strlen(query);
+                    end = strstr(end + strlen(query), query);
+                }
+				strcpy( &result[pos], begin );
+				pos += strlen(begin);
 				k = k+2;
 			} else {
 				result[pos]=markup[k];
@@ -443,7 +476,7 @@ static char * _format_result(char **match, char **fields, char *markup) {
 		}
 	}
 	result[pos] = '\0';
-	
+
 	return result;
 }
 

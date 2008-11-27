@@ -98,6 +98,7 @@ styles {
     tag:  "hilight" "+ font=Sans:style=Bold";
     tag:  "small" "+ font_size=8";
     tag:  "fade" "+ color=#567ea4";
+    tag:  "match" "+ color=#ae2828";
   }
 }
 
