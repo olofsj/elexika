@@ -9,7 +9,7 @@ typedef struct _Smart_Data Smart_Data;
 
 struct _Smart_Data
 { 
-    Evas_Coord       x, y, w, h;
+    Evas_Coord       x, y, w, h, lastw;
     Evas_Object     *parent;
     Evas_Object     *obj;
     Evas_Object     *clip;
@@ -57,11 +57,21 @@ elexika_result_list_clear(Evas_Object *obj)
     sd = evas_object_smart_data_get(obj);
     if (!sd) return;
 
+    if (sd->deferred_recalc_job) ecore_job_del(sd->deferred_recalc_job);
+    sd->deferred_recalc_job = NULL;
+
     for (l = sd->children; l; l = l->next) {
         sd->children = eina_list_remove(sd->children, l->data);
     }
 
-    _sizing_eval(obj);
+    evas_object_resize(sd->bg, 0, 0);
+    evas_object_resize(sd->clip, 0, 0);
+    evas_object_size_hint_min_set(sd->obj, 0, 0);
+    evas_object_size_hint_max_set(sd->obj, 1, 1);
+    sd->w = 0; 
+    sd->lastw = 0; 
+    sd->h = 0;
+    printf("List cleared\n");
 }
 
 void
@@ -83,13 +93,13 @@ elexika_result_list_append(Evas_Object *obj, Eina_List *list)
         edje_object_part_text_set(o, "result.text", match->str);
         //printf("Appending text to list: %s\n", str);
 
-        evas_object_show(o);
-
         evas_object_clip_set(o, sd->clip);
         evas_object_smart_member_add(o, obj);
         sd->children = eina_list_append(sd->children, o);
         if (eina_list_count(sd->children) % 2 == 0)
             edje_object_signal_emit(o, "result,state,even", "result_list");
+
+        evas_object_show(o);
     }
 
     _sizing_eval(obj);
@@ -105,25 +115,36 @@ _recalc_job(void *data)
     Evas_Object *child;
     Smart_Data *sd;
 
+
     sd = evas_object_smart_data_get(data);
     if (!sd) return;
 
     sd->deferred_recalc_job = NULL;
 
-    resh = 0;
-    for (l = sd->children; l; l = l->next) {
-        child = l->data;
-        edje_object_size_min_restricted_calc(child, &minw, &minh, sd->w, 0);
-        evas_object_resize(child, sd->w, minh);
-        evas_object_move(child, sd->x, sd->y + resh);
-        resh = resh + minh;
-        //printf("Child Size: %d %d\n", sd->w, minh);
-    }
+    printf("Recalc job called (w=%d, lastw=%d)\n", sd->w, sd->lastw);
+    if (sd->lastw != sd->w) {
+        // Width has changed, recalculation needed
+        resh = 0;
+        int i = 0;
+        for (l = sd->children; l; l = l->next) {
+            child = l->data;
+            edje_object_size_min_restricted_calc(child, &minw, &minh, sd->w, 0);
+            evas_object_resize(child, sd->w, minh);
+            evas_object_move(child, sd->x, sd->y + resh);
+            resh = resh + minh;
+            //printf("Child Size: %d %d\n", sd->w, minh);
+            printf("Child nr %d\n", i++);
+        }
 
-    evas_object_resize(sd->bg, sd->w, resh);
-    evas_object_resize(sd->clip, sd->w, resh);
-    evas_object_size_hint_min_set(sd->obj, 0, resh);
-    evas_object_size_hint_max_set(sd->obj, maxw, resh);
+        sd->lastw = sd->w;
+        sd->h = resh;
+        printf("Recalced width\n", i++);
+    }
+    evas_object_resize(sd->bg, sd->w, sd->h);
+    evas_object_resize(sd->clip, sd->w, sd->h);
+    evas_object_size_hint_min_set(sd->obj, 0, sd->h);
+    evas_object_size_hint_max_set(sd->obj, maxw, sd->h);
+    printf("Recalc job done\n");
 }
 
 /* private functions */
