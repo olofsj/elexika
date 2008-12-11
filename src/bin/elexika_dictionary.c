@@ -111,6 +111,7 @@ elexika_dictionary_new(const char *name, const char *filename, const char *forma
     dict->markup =  strdup(markup);
     dict->seps =  NULL;
     dict->fields =  NULL;
+    dict->max_nrof_results = 50;
 
     _parse_format(format, &dict->seps, &dict->fields);	
 	dict->dict = _dictionary_load_from_file(filename, dict->seps);
@@ -155,34 +156,33 @@ elexika_dictionary_query(Dictionary *self, const char *str)
 				if (strstr(self->dict[i][k], query) != NULL ) {
 					/* Format and calculate the score */
 					int score = strlen(self->dict[i][k]);
-					if ( strcmp( self->dict[i][k], query) == 0 ) { score = 0; }		// Exact matches get 0 score
-					score = score + k;		// Penalty for being in later fields, usually gives a nice result
+					score += k;		// Penalty for being in later fields, usually gives a nice result
+
+                    /* If there are enough better matches, skip this one */
+                    Match *last = eina_list_data_get(eina_list_last(result));
+                    if (result && score > last->score && count >= self->max_nrof_results) 
+                        break;
 
                     /* Build return value */
-                    match = calloc(1, sizeof(Match) + (isize-1)*sizeof(char *));
+                    match = calloc(1, sizeof(Match));
                     match->score = score;
                     match->str = _format_result(self->dict[i], self->fields, self->markup, query);
-                    /*
-                    for (j = 0; j < isize; j++) {
-                        match->str[j] = self->dict[i][j];
-                    }
-                    */
+                    Eina_List *l = eina_list_append(NULL, match);
 					
 					/* Insert any matches into the return value list */
-                    result = eina_list_append(result, match);
-					count++;
+                    result = eina_list_sorted_merge(result, l, elexika_dictionary_sort_cb);
+
+                    if (++count > self->max_nrof_results)
+                        result = eina_list_remove_list(result, eina_list_last(result));
 					
 					/* Don't add same word multiple times */
 					break; 
 				}
 			}
-			
-			/* Don't add too many results (slow and noone will read anyway) */
-			if ( count > 100 ) { break; }
 		}
 	}
 
-    return eina_list_sort(result, 0, elexika_dictionary_sort_cb);
+    return result;
 }
 
 int

@@ -41,7 +41,7 @@ collections {
                 }
                 description { state: "even" 0.0;
                     inherit:  "default" 0.0;
-                    color: 248 248 248 255;
+                    color: 236 236 236 255;
                 }
             }
             part { name: "result.text";

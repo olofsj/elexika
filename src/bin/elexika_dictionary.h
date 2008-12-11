@@ -14,6 +14,7 @@ struct _Dictionary {
 	char **seps; 
 	char **fields; 
 	char ***dict;
+	int max_nrof_results;
 };
 
 struct _Match {

@@ -205,6 +205,7 @@ main(int argc, char **argv)
     elm_entry_editable_set(entry, 1);
     evas_object_size_hint_weight_set(entry, 1.0, 0.0);
     evas_object_size_hint_align_set(entry, -1.0, 0.5);
+    evas_object_smart_callback_add(entry, "activated", _cb_query, evas);
     evas_object_name_set(entry, "entry/query");
     elm_scroller_content_set(sc, entry);
     evas_object_show(entry);
