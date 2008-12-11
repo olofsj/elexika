@@ -170,7 +170,9 @@ elexika_dictionary_query(Dictionary *self, const char *str)
                     Eina_List *l = eina_list_append(NULL, match);
 					
 					/* Insert any matches into the return value list */
-                    result = eina_list_sorted_merge(result, l, elexika_dictionary_sort_cb);
+                    //result = eina_list_sorted_merge(result, l, elexika_dictionary_sort_cb);
+                    result = eina_list_merge(result, l);
+                    result = eina_list_sort(result, 0, elexika_dictionary_sort_cb);
 
                     if (++count > self->max_nrof_results)
                         result = eina_list_remove_list(result, eina_list_last(result));
