@@ -132,10 +132,10 @@ elexika_dictionary_query(Dictionary *self, const char *str)
 	
 	if ( self->dict == NULL ) {
 		printf("No dictionary loaded.\n");
-		return;
+		return NULL;
 	}
 	if ( strlen(query) == 0 )
-		return;
+		return NULL;
 	
 	int size = 0;
 	while ( self->dict[size] != NULL ) { size++; }
