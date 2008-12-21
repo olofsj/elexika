@@ -17,18 +17,18 @@ _cb_load_timer(void *data)
 {
     Eina_List *result, *l, *dicts;
     Evas *evas;
-    Evas_Object *label, *en;
+    Evas_Object *en;
     char *file;
 
     evas = data;
-    label = evas_object_name_find(evas, "label/status");
     en = evas_object_name_find(evas, "results");
+    elexika_result_list_message_show(en, "Loading dictionary");
 
     /* set up the dictionary */
     ecore_main_loop_iterate();
     dicts = _get_available_dicts();
-    elm_label_label_set(label, "<b>Status: Loading dictionary...</b><br>");
     ecore_main_loop_iterate();
+
 
     for (l = dicts; l; l = l->next) {
         file = l->data;
@@ -37,7 +37,8 @@ _cb_load_timer(void *data)
                 elexika_dictionary_new_from_file(file));
     }
 
-    elm_label_label_set(label, "<b>Status: Ready.</b><br>");
+    elexika_result_list_message_clear(en);
+
     return 0;
 }
 
@@ -47,14 +48,14 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     Eina_List *result, *l, *d;
     Dictionary *dict;
     Evas *evas;
-    Evas_Object *label, *en, *entry;
+    Evas_Object *en, *entry;
     const char *query;
     char *end;
 
     evas = data;
-    label = evas_object_name_find(evas, "label/status");
     en = evas_object_name_find(evas, "results");
     entry = evas_object_name_find(evas, "entry/query");
+    elexika_result_list_message_show(en, "Querying...");
 
     query = elm_entry_entry_get(entry);
 
@@ -66,7 +67,6 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     if (strlen(query) == 0)
         return;
 
-    elm_label_label_set(label, "<b>Status: Querying dictionary...</b><br>");
     elexika_result_list_clear(en);
 
     printf("Query: %s\n", query);
@@ -82,11 +82,9 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     /* Display results */
     if (result) {
         elexika_result_list_append(en, result);
-    } else {
-        //elexika_result_list_append(en, "No results.");
     }
 
-    elm_label_label_set(label, "<b>Status: Ready.</b><br>");
+    elexika_result_list_message_clear(en);
     printf("Finished.\n");
 }
 
@@ -231,16 +229,6 @@ main(int argc, char **argv)
     evas_object_show(o);
 
     evas_object_show(sc);
-
-    //elexika_result_list_append(en, "Search for a word.");
-
-    label = elm_label_add(win);
-    elm_label_label_set(label, "<b>Status: Initializing interface...</b><br>");
-    elm_box_pack_end(bx, label);
-    evas_object_name_set(label, "label/status");
-    evas_object_size_hint_weight_set(label, 1.0, 0.0);
-    evas_object_size_hint_align_set(label, 0.0, 1.0);
-    evas_object_show(label);
 
     /* start timer to defer loading of dictionary */
     ecore_timer_add(1.0, _cb_load_timer, evas);

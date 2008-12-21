@@ -9,11 +9,13 @@ typedef struct _Smart_Data Smart_Data;
 
 struct _Smart_Data
 { 
-    Evas_Coord       x, y, w, h, lastw;
+    Evas_Coord       x, y, w, h, w_view, h_view;
     Evas_Object     *parent;
     Evas_Object     *obj;
     Evas_Object     *clip;
     Evas_Object     *bg;
+    Evas_Object     *overlay;
+    Evas_Bool        overlay_visible;
     Eina_List       *children;
     Ecore_Job       *deferred_recalc_job;
 }; 
@@ -61,17 +63,16 @@ elexika_result_list_clear(Evas_Object *obj)
     sd->deferred_recalc_job = NULL;
 
     for (l = sd->children; l; l = l->next) {
+        evas_object_del(l->data);
         sd->children = eina_list_remove(sd->children, l->data);
     }
 
-    evas_object_resize(sd->bg, 0, 0);
-    evas_object_resize(sd->clip, 0, 0);
+    evas_object_resize(sd->bg, sd->w_view, sd->h_view);
+    evas_object_resize(sd->clip, sd->w_view, sd->h_view);
     evas_object_size_hint_min_set(sd->obj, 0, 0);
-    evas_object_size_hint_max_set(sd->obj, 1, 1);
+    evas_object_size_hint_max_set(sd->obj, sd->w_view, sd->h_view);
     sd->w = 0; 
-    sd->lastw = 0; 
     sd->h = 0;
-    printf("List cleared\n");
 }
 
 void
@@ -91,7 +92,6 @@ elexika_result_list_append(Evas_Object *obj, Eina_List *list)
         o = edje_object_add(evas_object_evas_get(sd->obj));
         edje_object_file_set(o, "../../data/themes/elexika.edj", "result");
         edje_object_part_text_set(o, "result.text", match->str);
-        //printf("Appending text to list: %s\n", str);
 
         evas_object_clip_set(o, sd->clip);
         evas_object_smart_member_add(o, obj);
@@ -99,11 +99,39 @@ elexika_result_list_append(Evas_Object *obj, Eina_List *list)
         if (eina_list_count(sd->children) % 2 == 0)
             edje_object_signal_emit(o, "result,state,even", "result_list");
 
+        evas_object_stack_below(o, sd->overlay);
         evas_object_show(o);
     }
 
     _sizing_eval(obj);
 }
+
+void elexika_result_list_message_clear(Evas_Object *obj)
+{
+    Smart_Data *sd;
+
+    sd = evas_object_smart_data_get(obj);
+    if (!sd) return;
+
+    sd->overlay_visible = 0;
+    edje_object_signal_emit(sd->overlay, "overlay,hide", "result_list");
+    _sizing_eval(obj);
+}
+
+void elexika_result_list_message_show(Evas_Object *obj, const char *str)
+{
+    Smart_Data *sd;
+
+    sd = evas_object_smart_data_get(obj);
+    if (!sd) return;
+
+    printf("Show message: %s\n", str);
+    sd->overlay_visible = 1;
+    edje_object_signal_emit(sd->overlay, "overlay,show", "result_list");
+    edje_object_part_text_set(sd->overlay, "overlay.message", str);
+    _sizing_eval(obj);
+}
+
 
 /* callbacks */
 static void
@@ -115,36 +143,41 @@ _recalc_job(void *data)
     Evas_Object *child;
     Smart_Data *sd;
 
-
     sd = evas_object_smart_data_get(data);
     if (!sd) return;
 
     sd->deferred_recalc_job = NULL;
 
-    printf("Recalc job called (w=%d, lastw=%d)\n", sd->w, sd->lastw);
-    if (sd->lastw != sd->w) {
-        // Width has changed, recalculation needed
+    if (sd->w != sd->w_view) {
+        // Width has changed, recalc of all list entries needed
         resh = 0;
         int i = 0;
         for (l = sd->children; l; l = l->next) {
             child = l->data;
-            edje_object_size_min_restricted_calc(child, &minw, &minh, sd->w, 0);
-            evas_object_resize(child, sd->w, minh);
+            edje_object_size_min_restricted_calc(child, &minw, &minh, sd->w_view, 0);
+            evas_object_resize(child, sd->w_view, minh);
             evas_object_move(child, sd->x, sd->y + resh);
             resh = resh + minh;
-            //printf("Child Size: %d %d\n", sd->w, minh);
-            printf("Child nr %d\n", i++);
         }
 
-        sd->lastw = sd->w;
+        if (resh < sd->h_view) 
+            resh = sd->h_view;
+
+        sd->w = sd->w_view;
         sd->h = resh;
-        printf("Recalced width\n", i++);
     }
-    evas_object_resize(sd->bg, sd->w, sd->h);
-    evas_object_resize(sd->clip, sd->w, sd->h);
-    evas_object_size_hint_min_set(sd->obj, 0, sd->h);
-    evas_object_size_hint_max_set(sd->obj, maxw, sd->h);
-    printf("Recalc job done\n");
+
+    if (sd->overlay_visible) {
+        evas_object_resize(sd->clip, sd->w_view, sd->h_view);
+        evas_object_resize(sd->overlay, sd->w_view, sd->h_view);
+        evas_object_size_hint_max_set(sd->obj, sd->w_view, sd->h_view);
+    }
+    else {
+        evas_object_resize(sd->bg, sd->w, sd->h);
+        evas_object_resize(sd->clip, sd->w, sd->h);
+        evas_object_size_hint_min_set(sd->obj, 0, sd->h);
+        evas_object_size_hint_max_set(sd->obj, maxw, sd->h);
+    }
 }
 
 /* private functions */
@@ -209,6 +242,13 @@ _smart_add(Evas_Object *obj)
     evas_object_smart_member_add(sd->bg, obj);
     evas_object_show(sd->bg);
 
+    sd->overlay = edje_object_add(evas_object_evas_get(obj));
+    edje_object_file_set(sd->overlay, "../../data/themes/elexika.edj", "overlay");
+    evas_object_move(sd->overlay, 0, 0);
+    evas_object_clip_set(sd->overlay, sd->clip);
+    evas_object_smart_member_add(sd->overlay, obj);
+    evas_object_show(sd->overlay);
+
     evas_object_smart_data_set(obj, sd);
 }
 
@@ -221,6 +261,7 @@ _smart_del(Evas_Object *obj)
     if (!sd) return;
     evas_object_del(sd->clip);
     evas_object_del(sd->bg);
+    evas_object_del(sd->overlay);
     elexika_result_list_clear(obj);
     if (sd->deferred_recalc_job) ecore_job_del(sd->deferred_recalc_job);
     free(sd);
@@ -242,6 +283,7 @@ _smart_move(Evas_Object *obj, Evas_Coord x, Evas_Coord y)
     sd->y = y;
     evas_object_move(sd->clip, x, y);
     evas_object_move(sd->bg, x, y);
+    evas_object_move(sd->overlay, x, y);
     for (l = sd->children; l; l = l->next) {
         child = l->data;
         evas_object_geometry_get(child, &curx, &cury, NULL, NULL);
@@ -260,22 +302,13 @@ _smart_resize(Evas_Object *obj, Evas_Coord w, Evas_Coord h)
     sd = evas_object_smart_data_get(obj);
     if (!sd) return;
     
-    /*
-    resh = 0;
-    for (l = sd->children; l; l = l->next) {
-        child = l->data;
-        edje_object_size_min_restricted_calc(child, &minw, &minh, w, 0);
-        evas_object_resize(child, w, minh);
-        evas_object_move(child, sd->x, sd->y + resh);
-        resh = resh + minh;
+    if (sd->w != w || sd->h != h) {
+        sd->w_view = w;
+        sd->h_view = h;
     }
-    */
 
-    sd->w = w;
-    sd->h = h;
-    //evas_object_resize(sd->clip, w, h);
+    printf("Resize: %d %d\n", w, h);
     _sizing_eval(obj);
-
 }
 
 static void
