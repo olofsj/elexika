@@ -266,10 +266,9 @@ static char *** _dictionary_load_from_file(const char *filename, char **seps)
 	int entry_nr = 0;
 	while ( line != NULL && entry_nr < nr_lines )
 	{
-		/* Renove comments and blank lines */
+		/* Remove comments and blank lines */
 		if ( line[0] != '#' && strlen(line) > 0 ) {
 			dict[entry_nr] = _parse_input_line(line, seps);
-			//printf("%s\n", dict[entry_nr][0]);
 			entry_nr++;
 		}
 		line = strtok( NULL, "\n" );
@@ -340,7 +339,6 @@ static char ** _parse_input_line(const char *line, char **seps) {
 	char *pos = strstr( line, seps[0] );
 	if ( pos == NULL ) {
 		// Illegal format, return without parsing
-		//~ printf("Illegal, %d: %s\n", i, line);
 		free(result);
 		result = malloc(2 * sizeof(char *));
 		result[0] = strdup(line);
@@ -357,7 +355,6 @@ static char ** _parse_input_line(const char *line, char **seps) {
 		end = strstr( pos, seps[i+1] );
 		if ( begin == NULL || end == NULL) {
 			// Illegal format, return without parsing
-			//~ printf("Illegal, %d: %s\n", i, line);
 			free(result);
 			result = malloc(2 * sizeof(char *));
 			result[0] = strdup(line);
@@ -381,7 +378,6 @@ static char ** _parse_input_line(const char *line, char **seps) {
 		result[i][len] = '\0';	
 	} else {
 		// Illegal format, return without parsing
-		//~ printf("Illegal, last: %s\n", line);
 		free(result);
 		result = malloc(2 * sizeof(char *));
 		result[0] = strdup(line);
