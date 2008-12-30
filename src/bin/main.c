@@ -49,7 +49,7 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     Dictionary *dict;
     Evas *evas;
     Evas_Object *en, *entry;
-    const char *query;
+    char *query;
     char *end;
 
     evas = data;
@@ -57,13 +57,18 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     entry = evas_object_name_find(evas, "entry/query");
     elexika_result_list_message_show(en, "Querying...");
 
-    query = elm_entry_entry_get(entry);
+    query = strdup(elm_entry_entry_get(entry));
 
     /* Strip any markup at the end (for some reason it shows up) */
     end = strstr(query, "<");
-    if (end) {
+    if (end)
         *end = '\0';
-    }
+
+    /* Strip any ending whitespace */
+    end = query + strlen(query) - 1;
+    while (isspace(*end))
+        *end-- = '\0';
+
     if (strlen(query) == 0)
         return;
 
