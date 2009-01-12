@@ -151,8 +151,8 @@ on_win_del_req(void *data, Evas_Object *obj, void *event_info)
     elm_exit();
 }
 
-int
-main(int argc, char **argv)
+EAPI int
+elm_main(int argc, char **argv)
 {
     Ecore_Evas *ee;
     Evas *evas;
@@ -247,3 +247,4 @@ main(int argc, char **argv)
     /* when the main event loop exits, shutdown our libraries */
     elm_shutdown();
 }
+ELM_MAIN()
