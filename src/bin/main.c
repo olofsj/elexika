@@ -61,7 +61,7 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
     }
 
     elexika_result_list_message_clear(en);
-    printf("Finished.\n");
+    printf("Query finished (%d matches).\n", eina_list_count(result));
 }
 
 static Eina_List *
