@@ -1,31 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <Ecore.h>
 #include "elexika_dictionary.h"
 
-static char *** _dictionary_load_from_file(const char *filename, char **seps);
-static char ** _parse_input_line(const char *line, char **seps);
+static int _dictionary_load_from_file(Dictionary *self, const char *filename, char **seps);
+static int _build_dictionary_index(Dictionary *self);
 static void _parse_format(const char *format, char ***seps, char ***fields);
-static char * _format_result(char **match, char **fields, char *markup, const char *query);
+static char * _format_result(char **match, int *length, char **fields, char *markup, const char *query);
 static char * _get_config_value(char *buf);
+static char * _strnstr(const char *big, const char *little, int len);
 
 void
 elexika_dictionary_del(Dictionary* self)
 {
 	/* Free all values stored in the arrays, as well as the arrays themselves */
-	if (self->dict != NULL) {
-		int size = 0;
-		while ( self->dict[size] != NULL ) { size++; }
-		int i;
-		for (i = 0; i < size; i++) {
-			int isize = 0;
-			while ( self->dict[i][isize] != NULL ) { isize++; }
-			int k;
-			for (k = 0; k < isize; k++) { free(self->dict[i][k]); }
-			free(self->dict[i]);
-		}
-	}
-	free(self->dict);	
 	if (self->fields != NULL) {
 		int size = 0;
 		while ( self->fields[size] != NULL ) { size++; }
@@ -40,8 +34,8 @@ elexika_dictionary_del(Dictionary* self)
 		for (i = 0; i < size; i++) { free(self->seps[i]); }
 	}
 	free(self->seps); 
-	free(self->filename);
 	free(self->format);
+    // FIXME: Need to free all the self->file objects as well
 }
 
 Dictionary *
@@ -105,16 +99,21 @@ elexika_dictionary_new(const char *name, const char *filename, const char *forma
 
     dict = calloc(1, sizeof(Dictionary));
     dict->name = strdup(name);
-    dict->filename = strdup(filename);
-    dict->dict = NULL;
+    dict->dict.size = 0;
+    dict->dict.field = NULL;
+    dict->dict.length = NULL;
     dict->format =  strdup(format);
     dict->markup =  strdup(markup);
     dict->seps =  NULL;
     dict->fields =  NULL;
     dict->max_nrof_results = 50;
+    dict->file.file = strdup(filename);
+    dict->file.fd = -1;
+    dict->file.size = 0;
 
     _parse_format(format, &dict->seps, &dict->fields);	
-	dict->dict = _dictionary_load_from_file(filename, dict->seps);
+    if (!_dictionary_load_from_file(dict, filename, dict->seps))
+        return NULL;
 	
 	return dict;
 }
@@ -130,32 +129,29 @@ elexika_dictionary_query(Dictionary *self, const char *str)
     query = str;
     result = NULL;
 	
-	if ( self->dict == NULL ) {
+	if ( self->dict.field == NULL ) {
 		printf("No dictionary loaded.\n");
 		return NULL;
 	}
 	if ( strlen(query) == 0 )
 		return NULL;
 	
-	int size = 0;
-	while ( self->dict[size] != NULL ) { size++; }
-	
 	/* Search the dictionary. FIXME: We might want to implement a reasonable search algorithm. */
-	if (size == 0) {
+	if (self->dict.size == 0) {
 		printf("No dictionary loaded.\n");
 	}
 	else {
 		int i, j, k;
 		int count = 0;
-		for (i = 0; i < size; i++) {
+		for (i = 0; i < self->dict.size; i++) {
 			int isize = 0;
-			while ( self->dict[i][isize] != NULL ) { isize++; }
+			while ( self->dict.field[i][isize] != NULL ) { isize++; }
 			
 			/* Look in all fields for matches */
 			for (k = 0; k<isize; k++) {
-				if (strstr(self->dict[i][k], query) != NULL ) {
+				if (_strnstr(self->dict.field[i][k], query, self->dict.length[i][k]) != NULL ) {
 					/* Format and calculate the score */
-					int score = strlen(self->dict[i][k]);
+					int score = self->dict.length[i][k];
 					score += k;		// Penalty for being in later fields, usually gives a nice result
 
                     /* If there are enough better matches, skip this one */
@@ -166,7 +162,8 @@ elexika_dictionary_query(Dictionary *self, const char *str)
                     /* Build return value */
                     match = calloc(1, sizeof(Match));
                     match->score = score;
-                    match->str = _format_result(self->dict[i], self->fields, self->markup, query);
+                    match->str = _format_result(self->dict.field[i], self->dict.length[i], 
+                            self->fields, self->markup, query);
                     Eina_List *l = eina_list_append(NULL, match);
 					
 					/* Insert any matches into the return value list */
@@ -207,47 +204,50 @@ elexika_dictionary_sort_cb(const void *d1, const void *d2)
 int
 elexika_dictionary_size_get(Dictionary *self)
 {
-	if ( self->dict == NULL) {
-		return 0;
-	}
-	
-	int size = 0;
-	while ( self->dict[size] != NULL ) { size++; }
-	return size;
+	return self->dict.size;
 }
 
 
 /* Load the dictionary into memory */
-static char *** _dictionary_load_from_file(const char *filename, char **seps)
+static int _dictionary_load_from_file(Dictionary *self, const char *filename, char **seps)
 {
-	/* Read file to memory */
-	FILE * file_ptr = fopen( filename, "r" );
-	if ( file_ptr == NULL )  /* Could not open file */
-	{
-		printf("Dictionary file not found: %s\n", filename);
-		return NULL;
-	}
-	long  file_length;
-	char * file_contents;
+    double start, end;
+    start = ecore_time_get();
+
+    struct stat st;
+
+    /* Open file descriptor and stat the file to get size */
+    self->file.fd = open(self->file.file, O_RDONLY);
+    if (self->file.fd < 0)
+        return 0;
+    if (fstat(self->file.fd, &st) < 0)
+    {
+        close(self->file.fd);
+        return 0;
+    }
+    self->file.size = st.st_size;
+
+    /* mmap file contents */
+    self->file.dict = mmap(NULL, self->file.size, PROT_READ, MAP_SHARED, self->file.fd, 0);
+    if ((self->file.dict== MAP_FAILED) || (self->file.dict == NULL))
+    {
+        close(self->file.fd);
+        return 0;
+    }
+
+    _build_dictionary_index(self);
 	
-	/* Get file length */
-	fseek( file_ptr, 0L, SEEK_END );
-	file_length = ftell( file_ptr );
-	rewind( file_ptr );
-	
-	/* Allocate memory and read entire file to memory */
-	file_contents = calloc( file_length + 1, sizeof(char) );
-	if ( file_contents == NULL )
-	{
-		printf( "Insufficient memory to read file.\n" );
-		return NULL;
-	}
-	fread( file_contents, file_length, 1, file_ptr );
-	
+	/* Clean up */
+    end = ecore_time_get();
+	printf( "Dictionary loaded in %f seconds.\n", end - start);
+    return 1;
+}
+
+static int _build_dictionary_index(Dictionary *self) {
 	/* Parse the dictionary and store it in the global variable dictionary*/	
 	/* Get number of lines in the file */
 	int nr_lines = 0;
-	char * current = file_contents;
+	char * current = self->file.dict;
 	while ( current[0] != '\0' ) {
 		if ( current [0] == '\n' ) { nr_lines++; }
 		current++;
@@ -256,29 +256,101 @@ static char *** _dictionary_load_from_file(const char *filename, char **seps)
 	
 	/* Allocate memory */
 	char ***dict = malloc( (nr_lines+1) * sizeof(char **) );
+	int **length = malloc( (nr_lines+1) * sizeof(int *) );
 	if ( dict == NULL ) {
 		printf( "Insufficient memory to parse dictionary.\n" );
-		return NULL;
+		return 0;
 	}
-	
-	/* Add entries to the new dictionary */	
-	char * line = strtok( file_contents, "\n" );
-	int entry_nr = 0;
-	while ( line != NULL && entry_nr < nr_lines )
-	{
-		/* Remove comments and blank lines */
-		if ( line[0] != '#' && strlen(line) > 0 ) {
-			dict[entry_nr] = _parse_input_line(line, seps);
-			entry_nr++;
-		}
-		line = strtok( NULL, "\n" );
+
+    /**/
+	int nr_of_seps = 0;
+	if (self->seps != NULL) {
+		while ( self->seps[nr_of_seps] != NULL ) { nr_of_seps++; }
 	}
-	dict[entry_nr] = NULL;
-	
-	/* Clean up */
-	printf( "Dictionary loaded.\n" );
-	free( file_contents );
-	return dict;
+
+    /* Build the index of starts and lengths of fields */
+    char *line, *line_end;
+    int k;
+    int i = 0;
+    line = self->file.dict;
+    printf("Build the index.\n");
+    while (line < self->file.dict + self->file.size) {
+        line_end = line;
+        while (*line_end && *line_end != '\n')
+            line_end++;
+
+        /* If we have no reasonable format data just return the whole line */
+        if (nr_of_seps < 2) { 
+            dict[i] = malloc(2 * sizeof(char *));
+            dict[i][0] = line;
+            dict[i][1] = NULL;
+            length[i] = malloc(sizeof(int ));
+            length[i][0] = line_end - line;
+        }
+        else {
+            /* Else split on separators */ 
+            dict[i] = malloc((nr_of_seps) * sizeof(char *));
+            length[i] = malloc((nr_of_seps-1) * sizeof(int));
+
+            char *pos = strstr( line, self->seps[0] );
+            if ( pos == NULL ) {
+                // Illegal format, return without parsing
+                free(dict[i]);
+                free(length[i]);
+                line = line_end+1;
+                continue;
+            }
+            pos = pos + strlen(self->seps[0]);
+
+            char *end;
+            char *begin;
+            /* Parse all but the last field */ 
+            for (k = 0; k < nr_of_seps - 2; k++) {
+                begin = pos;
+                end = strstr( pos, self->seps[k+1] );
+                if ( begin == NULL || end == NULL) {
+                    // Illegal format, return without parsing
+                    free(dict[i]);
+                    free(length[i]);
+                    line = line_end+1;
+                    continue;
+                }
+                dict[i][k] = begin;
+                length[i][k] = end - begin;
+                if (end-begin < 0) {
+                    printf("ERROR: Negative length\n");
+                }
+                pos = end + strlen(self->seps[k+1]);
+            }
+
+            /* The last field we take the last separator from the end, not the first match */
+            begin = pos;
+            //end = (char *)&line[ line_end - line - strlen( self->seps[nr_of_seps-1] ) ];
+            end = line_end - strlen( self->seps[nr_of_seps-1] );
+            if ( strncmp( end, self->seps[nr_of_seps-1], line_end - end ) == 0 && end-begin >= 0) {
+                dict[i][k] = begin;
+                length[i][k] = end - begin;
+            } else {
+                // Illegal format, return without parsing
+                free(dict[i]);
+                free(length[i]);
+                line = line_end+1;
+                continue;
+            }
+            dict[i][nr_of_seps-1] = NULL;
+        }
+
+        line = line_end+1;
+        i++;
+    }
+    dict[i] = NULL;
+    self->dict.size = i-1;
+    self->dict.field = dict;
+    self->dict.length = length;
+    printf("Parsed %d entries.\n", i);
+    printf("First entry : %s (%d)\n", strndup(self->dict.field[0][0], self->dict.length[0][0]), self->dict.length[0][0]);
+    printf("Last entry : %s (%d)\n", strndup(self->dict.field[i-1][0], self->dict.length[i-1][0]), self->dict.length[i-1][0]);
+
 }
 
 /* Parse the format data and store extract the separators and field names */
@@ -317,88 +389,16 @@ static void _parse_format(const char *format, char ***seps, char ***fields) {
 	*fields = tempfields;
 }
 
-
-/* Parse a line according to the given format and return a NULL-terminated list of strings */
-static char ** _parse_input_line(const char *line, char **seps) {
-	int i;
-	int nr_of_seps = 0;
-	if (seps != NULL) {
-		while ( seps[nr_of_seps] != NULL ) { nr_of_seps++; }
-	}
-	
-	/* If we have no reasonable format data just return the whole line */
-	if (nr_of_seps < 2) { 
-		char **result = malloc(2 * sizeof(char *));
-		result[0] = strdup(line);
-		result[1] = NULL;
-		return result;
-	}
-	
-	/* Else break it up into fields */
-	char **result = malloc((nr_of_seps) * sizeof(char *));
-	char *pos = strstr( line, seps[0] );
-	if ( pos == NULL ) {
-		// Illegal format, return without parsing
-		free(result);
-		result = malloc(2 * sizeof(char *));
-		result[0] = strdup(line);
-		result[1] = NULL;
-		return result;
-	}
-	pos = pos + strlen(seps[0]);
-	
-	char *end;
-	char *begin;
-	/* Parse all but the last field */ 
-	for (i = 0; i < nr_of_seps - 2; i++) {
-		begin = pos;
-		end = strstr( pos, seps[i+1] );
-		if ( begin == NULL || end == NULL) {
-			// Illegal format, return without parsing
-			free(result);
-			result = malloc(2 * sizeof(char *));
-			result[0] = strdup(line);
-			result[1] = NULL;
-			return result;
-		}
-		int len = end - begin;
-		result[i] = malloc( (len+1)*sizeof(char) );
-		strncpy( result[i], begin, len);
-		result[i][len] = '\0';
-		pos = end + strlen(seps[i+1]);
-	}
-
-	/* The last field we take the last separator from the end, not the first match */
-	begin = pos;
-	end = (char *)&line[ strlen(line) - strlen( seps[nr_of_seps-1] ) ];
-	if ( strcmp( end, seps[nr_of_seps-1] ) == 0 ) {
-		int len = end-begin;
-		result[i] = malloc( (len+1)*sizeof(char) );
-		strncpy( result[i], begin, len);
-		result[i][len] = '\0';	
-	} else {
-		// Illegal format, return without parsing
-		free(result);
-		result = malloc(2 * sizeof(char *));
-		result[0] = strdup(line);
-		result[1] = NULL;
-		return result;
-	}
-	result[nr_of_seps-1] = NULL;
-	
-	return result;
-}
-
 /* Format result according to given markup string */
-static char * _format_result(char **match, char **fields, char *markup, const char *query) {
+static char * _format_result(char **match, int *length, char **fields, char *markup, const char *query) {
 	int k, j;
     const char * match_tag = "match";
 
 	/* If we have no format or markup just return the first field in match */
 	if ( fields == NULL || markup == NULL ) 
-		return strdup(match[0]);
+		return strndup(match[0], length[0]);
 	if ( strlen(markup) == 0 ) 
-		return strdup(match[0]);
+		return strndup(match[0], length[0]);
 		
 	int nr_of_fields = 0;
 	while ( fields[nr_of_fields] != NULL ) { nr_of_fields++; }
@@ -407,15 +407,19 @@ static char * _format_result(char **match, char **fields, char *markup, const ch
 	int size = 0;
 	while ( match[size] != NULL ) { size++; }
 	if (size != nr_of_fields)
-		return strdup(match[0]);
+		return strndup(match[0], length[0]);
 
     /* Count the number of matching substrings */
     int nrof_matches = 0;
 	for (k = 0; k < nr_of_fields; k++) {
-        char *tmp = strstr(match[k], query);
-        while (tmp) {
+        int len = length[k];
+        char *begin = match[k];
+        char *end = _strnstr(begin, query, len);
+        while (end) {
             nrof_matches++;
-            tmp = strstr(tmp + strlen(query), query);
+            len -= end + strlen(query) - begin;
+            begin = end + strlen(query);
+            end = _strnstr(begin, query, len);
         }
     }
 	
@@ -423,7 +427,8 @@ static char * _format_result(char **match, char **fields, char *markup, const ch
      * markup + fields + nrof_matches * tags */
 	int len = strlen(markup) + nrof_matches*(5 + 2*strlen(match_tag)) - 2*nr_of_fields;
 	for (k = 0; k < nr_of_fields; k++) 
-		len = len+strlen(match[k]);
+		len = len + length[k];
+
 	char *result = calloc(len+1, sizeof(char));
 	
 	/* Build the string from format and fields */
@@ -437,8 +442,9 @@ static char * _format_result(char **match, char **fields, char *markup, const ch
 					field = j;
 			}
 			if (field != -1) {
+                int len = length[field];
                 char *begin = match[field];
-                char *end = strstr(match[field], query);
+                char *end = _strnstr(begin, query, len);
                 while (end) {
                     /* Add tags around each matching substring */
                     strncpy(&result[pos], begin, end - begin);
@@ -454,11 +460,12 @@ static char * _format_result(char **match, char **fields, char *markup, const ch
                     strcpy(&result[pos], match_tag);
                     pos += strlen(match_tag);
                     result[pos++] = '>';
+                    len -= end + strlen(query) - begin;
                     begin = end + strlen(query);
-                    end = strstr(end + strlen(query), query);
+                    end = _strnstr(begin, query, len);
                 }
-				strcpy( &result[pos], begin );
-				pos += strlen(begin);
+				strncpy( &result[pos], begin, len );
+				pos += len;
 				k = k+2;
 			} else {
 				result[pos]=markup[k];
@@ -473,6 +480,17 @@ static char * _format_result(char **match, char **fields, char *markup, const ch
 	}
 	result[pos] = '\0';
 
+    /*
+    printf("nrof_matches = %d\n", nrof_matches);
+    printf("%d\n", pos - len);
+    printf("Entry: ");
+	for (k = 0; k < nr_of_fields; k++) {
+        printf("(%d) ", length[k]);
+        printf("%s ", strndup(match[k], length[k]));
+    }
+    printf("\n");
+    printf("Formatted string: %s\n", result);
+    */
 	return result;
 }
 
@@ -494,3 +512,25 @@ static char * _get_config_value(char *buf)
     return strdup(start);
 }
 
+static char * _strnstr(const char *big, const char *little, int len)
+{
+    char *pos = big;
+    //printf("len = %d\n", len);
+    //printf("Look for %s in %s (%d)\n", little, strndup(big, len), len);
+    while (pos < big + len - strlen(little) + 1) {
+        if (!*pos)
+            return NULL;
+
+        if (*pos == *little) {
+            int i = 1;
+            while (pos[i] == little[i] && i < strlen(little)) {
+                i++;
+            }
+            if (i == strlen(little)) {
+                return pos;
+            }
+        }
+        pos++;
+    }
+    return NULL;
+}

@@ -7,13 +7,22 @@ typedef struct _Dictionary Dictionary;
 typedef struct _Match Match;
 
 struct _Dictionary {
+    struct {
+        char *file;
+        int fd;
+        char *dict;
+        int size;
+    } file;
 	char *name; 
-	char *filename; 
 	char *format; 
 	char *markup; 
 	char **seps; 
 	char **fields; 
-	char ***dict;
+    struct {
+        int size;
+        char ***field;
+        int **length;
+    } dict;
 	int max_nrof_results;
 };
 
