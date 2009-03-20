@@ -11,36 +11,7 @@ static Eina_List * _get_available_dicts(void);
 static const char * _user_homedir_get(void);
 
 static Eina_List *_dicts = NULL;
-
-static int
-_cb_load_timer(void *data)
-{
-    Eina_List *result, *l, *dicts;
-    Evas *evas;
-    Evas_Object *en;
-    char *file;
-
-    evas = data;
-    en = evas_object_name_find(evas, "results");
-    elexika_result_list_message_show(en, "Loading dictionary");
-
-    /* set up the dictionary */
-    ecore_main_loop_iterate();
-    dicts = _get_available_dicts();
-    ecore_main_loop_iterate();
-
-
-    for (l = dicts; l; l = l->next) {
-        file = l->data;
-        printf("Loading dictionary: %s\n", file);
-        _dicts = eina_list_append(_dicts, 
-                elexika_dictionary_new_from_file(file));
-    }
-
-    elexika_result_list_message_clear(en);
-
-    return 0;
-}
+static double start_time = 0;
 
 static void
 _cb_query(void *data, Evas_Object *obj, void *event_info)
@@ -105,20 +76,15 @@ _get_available_dicts(void)
     homedir = _user_homedir_get();
     snprintf(buf, sizeof(buf), "%s/.elexika", homedir);
     files = ecore_file_ls(buf);
-    if (files)
+    EINA_LIST_FREE(files, file)
     {
-        ecore_list_first_goto(files);
-        while ((file = ecore_list_current(files)))
+        p = strrchr(file, '.');
+        if ((p) && (!strcmp(p, ".dict")))
         {
-            p = strrchr(file, '.');
-            if ((p) && (!strcmp(p, ".dict")))
-            {
-                snprintf(buf, sizeof(buf), "%s/.elexika/%s", homedir, file);
-                dicts = eina_list_append(dicts, evas_stringshare_add(buf));
-            }
-            ecore_list_next(files);
+            snprintf(buf, sizeof(buf), "%s/.elexika/%s", homedir, file);
+            dicts = eina_list_append(dicts, evas_stringshare_add(buf));
         }
-        ecore_list_destroy(files);
+        free(file);
     }
 
     for (l = dicts; l; l = l->next) {
@@ -158,12 +124,16 @@ elm_main(int argc, char **argv)
     Evas *evas;
     Evas_Object *bg, *tb, *edje, *o, *sc, *en, *win, *bx, *bx2, *entry, *label, *button;
     Evas_Coord x, y, w, h;
+    Eina_List *result, *l, *dicts;
+    char *file;
 
     w = 240;
     h = 320;
     
     /* Initialize libraries */
     elm_init(argc, argv);
+    
+    start_time = ecore_time_get();
 
     /* Set up window */
     win = elm_win_add(NULL, "main", ELM_WIN_BASIC);
@@ -235,8 +205,19 @@ elm_main(int argc, char **argv)
 
     evas_object_show(sc);
 
-    /* start timer to defer loading of dictionary */
-    ecore_timer_add(1.0, _cb_load_timer, evas);
+    /* Load dictionaries */
+    dicts = _get_available_dicts();
+
+    for (l = dicts; l; l = l->next) {
+        file = l->data;
+        printf("Loading dictionary: %s\n", file);
+        _dicts = eina_list_append(_dicts, 
+                elexika_dictionary_new_from_file(file));
+    }
+
+    elexika_result_list_message_clear(o);
+
+    printf("Elapsed time since start: %f\n", ecore_time_get() - start_time);
 
     /* start the main event loop */
     evas_object_resize(win, w, h);
