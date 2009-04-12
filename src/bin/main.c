@@ -12,16 +12,18 @@ static const char * _user_homedir_get(void);
 
 static Eina_List *_dicts = NULL;
 static double start_time = 0;
+static int max_nrof_matches = 15;
 
 static void
 _cb_query(void *data, Evas_Object *obj, void *event_info)
 {
-    Eina_List *result, *l, *d;
+    Eina_List *result, *l, *ll, *d;
     Dictionary *dict;
     Evas *evas;
     Evas_Object *en, *entry;
     char *query;
     char *end;
+    char *tmp;
 
     evas = data;
     en = evas_object_name_find(evas, "results");
@@ -54,6 +56,10 @@ _cb_query(void *data, Evas_Object *obj, void *event_info)
                 elexika_dictionary_sort_cb);
         printf("Queried dictionary '%s'.\n", dict->name);
     }
+
+    /* Keep only the max number of matches */
+    EINA_LIST_FOREACH_SAFE(eina_list_nth_list(result, max_nrof_matches), l, ll, tmp)
+       result = eina_list_remove_list(result, l);
 
     /* Display results */
     if (result) {
